@@ -59,6 +59,7 @@
 
       html {
         scroll-behavior: smooth;
+        background-color: #32020d;
       }
 
       body {
@@ -68,6 +69,7 @@
         overflow-x: hidden;
         color: var(--text);
         font-family: "Manrope", sans-serif;
+        background-color: #32020d;
         background:
           radial-gradient(circle at top, rgba(253, 220, 160, 0.08), transparent 30%),
           radial-gradient(circle at 18% 18%, rgba(232, 156, 120, 0.09), transparent 22%),
@@ -1155,6 +1157,37 @@
         }
       }
 
+      @media (hover: none) and (pointer: coarse), (max-width: 820px) {
+        html,
+        body {
+          background-color: #32020d;
+          overscroll-behavior-y: none;
+        }
+
+        body::before,
+        body::after,
+        .petal-layer,
+        .sparkle-field {
+          transform: translateZ(0);
+          backface-visibility: hidden;
+        }
+
+        body::before {
+          opacity: 0.24;
+          mix-blend-mode: normal;
+        }
+
+        .detail-card,
+        .detail-card__label {
+          text-align: center;
+        }
+
+        .detail-card p {
+          margin-left: auto;
+          margin-right: auto;
+        }
+      }
+
       @media (max-width: 699px) {
         .intro {
           padding: 1rem;
@@ -1214,6 +1247,8 @@
 
         .hero__arch {
           padding: 4rem 1rem 1.85rem;
+          -webkit-backdrop-filter: none;
+          backdrop-filter: none;
         }
 
         .monogram-mark--hero {
@@ -1248,6 +1283,49 @@
           padding: 0.72rem 0.86rem;
           font-size: 0.66rem;
           letter-spacing: 0.24em;
+        }
+
+        .countdown__panel {
+          padding: 1rem 0.72rem;
+        }
+
+        .countdown__grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 0.4rem;
+        }
+
+        .countdown__box {
+          min-width: 0;
+          padding: 0.92rem 0.28rem 0.78rem;
+        }
+
+        .countdown__value {
+          font-size: clamp(1.35rem, 6.6vw, 1.8rem);
+        }
+
+        .countdown__unit {
+          margin-top: 0.38rem;
+          font-size: 0.5rem;
+          letter-spacing: 0.16em;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .countdown__grid {
+          gap: 0.28rem;
+        }
+
+        .countdown__box {
+          padding: 0.82rem 0.18rem 0.7rem;
+        }
+
+        .countdown__value {
+          font-size: clamp(1.18rem, 6.4vw, 1.5rem);
+        }
+
+        .countdown__unit {
+          font-size: 0.45rem;
+          letter-spacing: 0.12em;
         }
       }
 
@@ -1514,6 +1592,13 @@
       let atmosphereBuilt = false;
       let petalSeed = 0;
       let lastPetalBurstAt = 0;
+      let petalBurstTimer = 0;
+      let petalHoldTimer = 0;
+      let activePetalPointerId = null;
+      let activePetalX = window.innerWidth * 0.5;
+      let activePetalY = window.innerHeight * 0.32;
+      let activePetalStartX = activePetalX;
+      let activePetalStartY = activePetalY;
 
       const randomBetween = (min, max) => min + Math.random() * (max - min);
       const clampValue = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -1658,7 +1743,53 @@
         }
       };
 
-      const handlePetalBurst = (event) => {
+      const clearPetalHoldTimer = () => {
+        if (petalHoldTimer) {
+          window.clearTimeout(petalHoldTimer);
+          petalHoldTimer = 0;
+        }
+      };
+
+      const cancelPendingPetalTouch = () => {
+        clearPetalHoldTimer();
+
+        if (!petalBurstTimer) {
+          activePetalPointerId = null;
+        }
+      };
+
+      const stopPetalBurstLoop = () => {
+        clearPetalHoldTimer();
+        if (petalBurstTimer) {
+          window.clearInterval(petalBurstTimer);
+          petalBurstTimer = 0;
+        }
+        activePetalPointerId = null;
+      };
+
+      const startPetalBurstLoop = () => {
+        clearPetalHoldTimer();
+        triggerPetalBurst();
+
+        if (!petalBurstTimer) {
+          petalBurstTimer = window.setInterval(triggerPetalBurst, isMobileViewport ? 150 : 190);
+        }
+      };
+
+      const triggerPetalBurst = () => {
+        if (reducedMotion || !invitationOpened || !body.classList.contains("is-open")) {
+          return;
+        }
+
+        const now = performance.now();
+        if (now - lastPetalBurstAt < (isMobileViewport ? 140 : 180)) {
+          return;
+        }
+        lastPetalBurstAt = now;
+        releasePetalBurst(activePetalX, activePetalY);
+      };
+
+      const handlePetalBurstStart = (event) => {
         if (reducedMotion || !invitationOpened || !body.classList.contains("is-open")) {
           return;
         }
@@ -1667,15 +1798,70 @@
           return;
         }
 
-        const now = performance.now();
-        if (now - lastPetalBurstAt < 180) {
+        const pointerId = "pointerId" in event ? event.pointerId : 0;
+        const isTouchLikeInteraction =
+          isMobileViewport &&
+          (!("pointerType" in event) || event.pointerType !== "mouse");
+
+        activePetalPointerId = pointerId;
+        activePetalX = typeof event.clientX === "number" ? event.clientX : window.innerWidth * 0.5;
+        activePetalY = typeof event.clientY === "number" ? event.clientY : window.innerHeight * 0.32;
+        activePetalStartX = activePetalX;
+        activePetalStartY = activePetalY;
+
+        if (!isTouchLikeInteraction) {
+          startPetalBurstLoop();
           return;
         }
-        lastPetalBurstAt = now;
 
-        const clientX = typeof event.clientX === "number" ? event.clientX : window.innerWidth * 0.5;
-        const clientY = typeof event.clientY === "number" ? event.clientY : window.innerHeight * 0.32;
-        releasePetalBurst(clientX, clientY);
+        clearPetalHoldTimer();
+        petalHoldTimer = window.setTimeout(() => {
+          if (activePetalPointerId === pointerId) {
+            startPetalBurstLoop();
+          }
+        }, 140);
+      };
+
+      const handlePetalBurstMove = (event) => {
+        if (activePetalPointerId === null) {
+          return;
+        }
+
+        if ("pointerId" in event && event.pointerId !== activePetalPointerId) {
+          return;
+        }
+
+        activePetalX = typeof event.clientX === "number" ? event.clientX : activePetalX;
+        activePetalY = typeof event.clientY === "number" ? event.clientY : activePetalY;
+
+        if (isMobileViewport && !petalBurstTimer) {
+          const distance = Math.hypot(activePetalX - activePetalStartX, activePetalY - activePetalStartY);
+
+          if (distance > 14) {
+            clearPetalHoldTimer();
+            activePetalPointerId = null;
+          }
+        }
+      };
+
+      const handlePetalBurstEnd = (event) => {
+        if (activePetalPointerId === null) {
+          return;
+        }
+
+        if ("pointerId" in event && event.pointerId !== activePetalPointerId) {
+          return;
+        }
+
+        const distance = Math.hypot(activePetalX - activePetalStartX, activePetalY - activePetalStartY);
+        const isStillTouch = isMobileViewport && distance <= 14;
+        const hadContinuousBurst = Boolean(petalBurstTimer);
+
+        if (isStillTouch && !hadContinuousBurst) {
+          triggerPetalBurst();
+        }
+
+        stopPetalBurstLoop();
       };
 
       const openInvitation = () => {
@@ -1714,11 +1900,17 @@
         }
       );
 
-      revealItems.forEach((item) => {
-        if (!item.classList.contains("reveal--visible")) {
-          revealObserver.observe(item);
-        }
-      });
+      if (isMobileViewport) {
+        revealItems.forEach((item) => {
+          item.classList.add("is-visible");
+        });
+      } else {
+        revealItems.forEach((item) => {
+          if (!item.classList.contains("reveal--visible")) {
+            revealObserver.observe(item);
+          }
+        });
+      }
 
       const updateCountdown = () => {
         const difference = celebrationDate.getTime() - Date.now();
@@ -1755,7 +1947,16 @@
         window.setTimeout(openInvitation, reducedMotion ? 40 : 120);
       }
 
-      window.addEventListener("pointerdown", handlePetalBurst, { passive: true });
+      window.addEventListener("pointerdown", handlePetalBurstStart, { passive: true });
+      window.addEventListener("pointermove", handlePetalBurstMove, { passive: true });
+      window.addEventListener("pointerup", handlePetalBurstEnd, { passive: true });
+      window.addEventListener("pointercancel", stopPetalBurstLoop, { passive: true });
+      window.addEventListener("scroll", cancelPendingPetalTouch, { passive: true });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          stopPetalBurstLoop();
+        }
+      });
       updateCountdown();
       window.setInterval(updateCountdown, 1000);
     </script>
