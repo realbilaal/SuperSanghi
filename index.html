@@ -79,6 +79,7 @@
       body.is-locked {
         overflow: hidden;
         height: 100svh;
+        height: 100dvh;
       }
 
       body::before,
@@ -251,6 +252,7 @@
         background: none;
         color: #5a2a18;
         cursor: pointer;
+        touch-action: manipulation;
         z-index: 1;
         animation: envelopeFloat 6s ease-in-out infinite;
       }
@@ -579,6 +581,7 @@
       .hero {
         position: relative;
         min-height: 100svh;
+        min-height: 100dvh;
         display: grid;
         align-items: center;
         padding: clamp(6rem, 10vw, 8rem) 1.1rem 3rem;
@@ -1503,10 +1506,12 @@
       const secondsValue = document.getElementById("secondsValue");
       const revealItems = document.querySelectorAll(".reveal");
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const isMobileViewport = window.matchMedia("(max-width: 820px), (pointer: coarse)").matches;
       const celebrationDate = new Date("2026-04-21T18:00:00+05:30");
       const shouldAutoOpen = new URLSearchParams(window.location.search).get("open") === "1";
 
       let invitationOpened = false;
+      let atmosphereBuilt = false;
       let petalSeed = 0;
       let lastPetalBurstAt = 0;
 
@@ -1576,37 +1581,52 @@
           return;
         }
 
-        for (let index = 0; index < 24; index += 1) {
+        const backPetalCount = isMobileViewport ? 12 : 24;
+        const frontPetalCount = isMobileViewport ? 16 : 30;
+        const sparkleCount = isMobileViewport ? 12 : 28;
+
+        for (let index = 0; index < backPetalCount; index += 1) {
           createPetal(petalBack, petalSeed, {
-            minSize: 0.5,
-            maxSize: 0.98,
-            minDuration: 15,
-            maxDuration: 24,
-            maxDelay: 24,
-            maxBlur: 0.9,
-            minDrift: -126,
-            maxDrift: 126,
+            minSize: isMobileViewport ? 0.46 : 0.5,
+            maxSize: isMobileViewport ? 0.82 : 0.98,
+            minDuration: isMobileViewport ? 16 : 15,
+            maxDuration: isMobileViewport ? 25 : 24,
+            maxDelay: isMobileViewport ? 16 : 24,
+            maxBlur: isMobileViewport ? 0.55 : 0.9,
+            minDrift: isMobileViewport ? -96 : -126,
+            maxDrift: isMobileViewport ? 96 : 126,
           });
           petalSeed += 1;
         }
 
-        for (let index = 0; index < 30; index += 1) {
+        for (let index = 0; index < frontPetalCount; index += 1) {
           createPetal(petalFront, petalSeed, {
-            minSize: 0.66,
-            maxSize: 1.22,
-            minDuration: 12.5,
-            maxDuration: 18.5,
-            maxDelay: 20,
-            maxBlur: 0.2,
-            minDrift: -104,
-            maxDrift: 104,
+            minSize: isMobileViewport ? 0.56 : 0.66,
+            maxSize: isMobileViewport ? 0.94 : 1.22,
+            minDuration: isMobileViewport ? 13.5 : 12.5,
+            maxDuration: isMobileViewport ? 19.5 : 18.5,
+            maxDelay: isMobileViewport ? 14 : 20,
+            maxBlur: isMobileViewport ? 0.08 : 0.2,
+            minDrift: isMobileViewport ? -84 : -104,
+            maxDrift: isMobileViewport ? 84 : 104,
           });
           petalSeed += 1;
         }
 
-        for (let index = 0; index < 28; index += 1) {
+        for (let index = 0; index < sparkleCount; index += 1) {
           createSparkle();
         }
+      };
+
+      const ensureAtmosphere = () => {
+        if (reducedMotion || atmosphereBuilt) {
+          return;
+        }
+
+        atmosphereBuilt = true;
+        window.requestAnimationFrame(() => {
+          buildAtmosphere();
+        });
       };
 
       const releasePetalBurst = (clientX, clientY) => {
@@ -1615,20 +1635,22 @@
         const left = clampValue((clientX / viewportWidth) * 100, -4, 104);
         const top = clampValue((clientY / viewportHeight) * 100 - 14, -12, 84);
 
-        for (let index = 0; index < 7; index += 1) {
+        const burstCount = isMobileViewport ? 4 : 7;
+
+        for (let index = 0; index < burstCount; index += 1) {
           const layer = index % 2 === 0 ? petalFront : petalBack;
           createPetal(layer, petalSeed, {
-            minSize: 0.5,
-            maxSize: 1.02,
-            minDuration: 7.8,
-            maxDuration: 11.8,
+            minSize: isMobileViewport ? 0.44 : 0.5,
+            maxSize: isMobileViewport ? 0.82 : 1.02,
+            minDuration: isMobileViewport ? 6.6 : 7.8,
+            maxDuration: isMobileViewport ? 9.2 : 11.8,
             maxDelay: 0.14,
-            maxBlur: layer === petalBack ? 0.48 : 0.16,
-            minDrift: -86,
-            maxDrift: 86,
-            left: clampValue(left + randomBetween(-10, 10), -4, 104),
-            startTop: `${clampValue(top + randomBetween(-10, 2), -12, 84).toFixed(2)}vh`,
-            opacity: randomBetween(0.18, 0.42),
+            maxBlur: isMobileViewport ? 0.12 : layer === petalBack ? 0.48 : 0.16,
+            minDrift: isMobileViewport ? -54 : -86,
+            maxDrift: isMobileViewport ? 54 : 86,
+            left: clampValue(left + randomBetween(isMobileViewport ? -7 : -10, isMobileViewport ? 7 : 10), -4, 104),
+            startTop: `${clampValue(top + randomBetween(-8, 2), -12, 84).toFixed(2)}vh`,
+            opacity: randomBetween(0.14, isMobileViewport ? 0.28 : 0.42),
             scale: randomBetween(0.76, 1.08),
             once: true,
           });
@@ -1637,7 +1659,7 @@
       };
 
       const handlePetalBurst = (event) => {
-        if (reducedMotion) {
+        if (reducedMotion || !invitationOpened || !body.classList.contains("is-open")) {
           return;
         }
 
@@ -1671,6 +1693,7 @@
           body.classList.remove("is-locked");
           body.classList.remove("is-opening");
           intro.setAttribute("aria-hidden", "true");
+          ensureAtmosphere();
         }, reducedMotion ? 30 : 1100);
       };
 
@@ -1724,6 +1747,8 @@
 
       if (openButton) {
         openButton.addEventListener("click", openInvitation);
+        openButton.addEventListener("pointerup", openInvitation);
+        openButton.addEventListener("touchend", openInvitation, { passive: true });
       }
 
       if (shouldAutoOpen) {
@@ -1731,7 +1756,6 @@
       }
 
       window.addEventListener("pointerdown", handlePetalBurst, { passive: true });
-      buildAtmosphere();
       updateCountdown();
       window.setInterval(updateCountdown, 1000);
     </script>
